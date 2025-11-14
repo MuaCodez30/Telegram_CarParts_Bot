@@ -92,3 +92,31 @@ def get_part_by_id(part_id: int) -> Optional[Tuple]:
     row = c.fetchone()
     conn.close()
     return row
+
+def fetch_parts(limit: int = 20, offset: int = 0) -> List[Tuple]:
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, vin, oem, name, price, description, photo_path, uploader_id, uploader_username, upload_date
+        FROM parts
+        ORDER BY id DESC
+        LIMIT ? OFFSET ?
+    """, (limit, offset))
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def delete_part(part_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM parts WHERE id = ?", (part_id,))
+    conn.commit()
+    conn.close()
+
+def count_parts() -> int:
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM parts")
+    total = c.fetchone()[0]
+    conn.close()
+    return total

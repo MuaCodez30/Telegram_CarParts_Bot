@@ -2,21 +2,27 @@ import asyncio
 import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile, Message, FSInputFile
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile, Message, FSInputFile, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
 import database as db
+from dotenv import load_dotenv
+load_dotenv()
 
 # === CONFIG ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 # Ensure DB exists
 db.init_db()
 os.makedirs("images", exist_ok=True)
+
+
+ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",")]
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
 
 # === FSM states for upload and search ===
 class UploadStates(StatesGroup):
@@ -354,6 +360,76 @@ async def cb_contact_seller(query: types.CallbackQuery):
             await query.message.answer(f"Seller's username: @{uploader_username}. You can message them directly.")
         else:
             await query.message.answer("Could not message seller. Seller may have privacy settings. Try browsing other listings or ask admin for help.")
+
+# Admins Section
+from aiogram.types import ReplyKeyboardRemove
+
+@dp.message(Command("admin"))
+async def admin_menu(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ You are not authorized to use this.")
+        return
+
+    kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="📄 List all listings", callback_data="admin_listings")],
+        [InlineKeyboardButton(text="🗑 Delete a listing", callback_data="admin_delete")],
+        [InlineKeyboardButton(text="⛔ Ban a user", callback_data="admin_ban")],
+        [InlineKeyboardButton(text="📊 View stats", callback_data="admin_stats")],
+        [InlineKeyboardButton(text="↩ Back to main menu", callback_data="back_menu")]
+    ]
+)
+    await message.answer("🛠 Welcome to the Admin Panel:", reply_markup=kb)
+
+@dp.callback_query(F.data == "admin_listings")
+async def admin_listings(query: CallbackQuery):
+    if not is_admin(query.from_user.id):
+        await query.answer("❌ Unauthorized", show_alert=True)
+        return
+
+    parts = db.fetch_parts(limit=20, offset=0)  # For demo, fetch first 20
+    if not parts:
+        await query.message.answer("No listings available.")
+        return
+
+    for part in parts:
+        part_id = part[0]  # or part['id'] if using dicts
+        caption = (
+            f"ID: {part_id}\n"
+            f"Name: {part[3]}\n"
+            f"VIN: {part[1]}\n"
+            f"Price: {part[4]} AZN\n"
+            f"Uploaded by: @{part[8] if part[8] else part[7]}"
+        )
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🗑 Delete", callback_data=f"admin_delete_{part_id}")]
+        ])
+
+        if part[6] and os.path.exists(part[6]):
+            await query.message.answer_photo(photo=FSInputFile(part[6]), caption=caption, reply_markup=kb)
+        else:
+            await query.message.answer(caption, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("admin_delete_"))
+async def admin_delete_listing(query: CallbackQuery):
+    if not is_admin(query.from_user.id):
+        await query.answer("❌ Unauthorized", show_alert=True)
+        return
+
+    part_id = int(query.data.split("_")[-1])
+    db.delete_part(part_id)
+    await query.message.answer(f"✅ Listing {part_id} has been deleted.")
+
+@dp.callback_query(F.data == "admin_stats")
+async def admin_stats(query: CallbackQuery):
+    if not is_admin(query.from_user.id):
+        await query.answer("❌ Unauthorized", show_alert=True)
+        return
+
+    total_listings = db.count_parts()
+    # For demo, searches & users can be implemented later
+    await query.message.answer(f"📊 Stats:\n• Total uploads: {total_listings}\n• Total users: TBD\n• Searches: TBD")
 
 
 # === Start polling ===
