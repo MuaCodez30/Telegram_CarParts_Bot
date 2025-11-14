@@ -92,3 +92,60 @@ def get_part_by_id(part_id: int) -> Optional[Tuple]:
     row = c.fetchone()
     conn.close()
     return row
+
+def fetch_parts(limit: int = 20, offset: int = 0) -> List[Tuple]:
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, vin, oem, name, price, description, photo_path, uploader_id, uploader_username, upload_date
+        FROM parts
+        ORDER BY id DESC
+        LIMIT ? OFFSET ?
+    """, (limit, offset))
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def delete_part(part_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM parts WHERE id = ?", (part_id,))
+    conn.commit()
+    conn.close()
+
+def count_parts() -> int:
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM parts")
+    total = c.fetchone()[0]
+    conn.close()
+    return total
+
+def init_db():
+    # existing tables
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    
+    # Add banned_users table
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS banned_users (
+            user_id INTEGER PRIMARY KEY,
+            reason TEXT,
+            banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+
+def ban_user(self, user_id: int):
+    self.cursor.execute("UPDATE users SET banned = 1 WHERE user_id = ?", (user_id,))
+    self.conn.commit()
+
+def unban_user(self, user_id: int):
+    self.cursor.execute("UPDATE users SET banned = 0 WHERE user_id = ?", (user_id,))
+    self.conn.commit()
+
+def is_banned(self, user_id: int) -> bool:
+    r = self.cursor.execute("SELECT banned FROM users WHERE user_id = ?", (user_id,)).fetchone()
+    return r and r[0] == 1
