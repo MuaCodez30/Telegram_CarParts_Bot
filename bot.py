@@ -37,7 +37,7 @@ class SearchStates(StatesGroup):
 # --- Utility: build main menu keyboard
 def main_menu_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 Browse Parts", callback_data="browse")],
+        [InlineKeyboardButton(text="🛒 Browse Parts", callback_data="browse_0")],
         [InlineKeyboardButton(text="🔧 Upload a Part", callback_data="upload")],
         [InlineKeyboardButton(text="🔍 Search Parts", callback_data="search")],
     ])
@@ -355,7 +355,54 @@ async def cb_contact_seller(query: types.CallbackQuery):
         else:
             await query.message.answer("Could not message seller. Seller may have privacy settings. Try browsing other listings or ask admin for help.")
 
+@dp.callback_query(F.data.startswith("browse_"))
+async def browse_parts_handler(callback: CallbackQuery):
+    page = int(callback.data.split("_")[1])
+    PAGE_SIZE = 5  # change as you like
 
+    offset = page * PAGE_SIZE
+
+    # Fetch listings with limit/offset
+    parts = db.fetch_parts(limit=PAGE_SIZE, offset=offset)
+    total_count = db.count_parts()
+
+    if not parts:
+        await callback.message.edit_text("No parts found.")
+        return
+
+    text = "📦 *Car Parts*\n\n"
+
+    for part in parts:
+        text += (
+            f"🆔 ID: {part['id']}\n"
+            f"🚗 VIN: {part['vin']}\n"
+            f"📦 OEM: {part['oem']}\n"
+            f"💵 Price: {part['price']} AZN\n"
+            f"📄 {part['description'][:50]}...\n"
+            f"---\n"
+        )
+
+    # Build pagination buttons
+    buttons = []
+
+    # Previous
+    if page > 0:
+        buttons.append(
+            InlineKeyboardButton(text="⬅ Previous", callback_data=f"browse_{page-1}")
+        )
+
+    # Next
+    if offset + PAGE_SIZE < total_count:
+        buttons.append(
+            InlineKeyboardButton(text="Next ➡", callback_data=f"browse_{page+1}")
+        )
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
+
+    await callback.message.edit_text(
+        text, reply_markup=keyboard, parse_mode="Markdown"
+    )
+    
 # === Start polling ===
 async def main():
     print("Bot is starting...")

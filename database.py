@@ -92,3 +92,17 @@ def get_part_by_id(part_id: int) -> Optional[Tuple]:
     row = c.fetchone()
     conn.close()
     return row
+
+def fetch_parts(self, limit=5, offset=0):
+    cursor = self.conn.cursor()
+    cursor.execute(
+        "SELECT * FROM parts ORDER BY id DESC LIMIT ? OFFSET ?",
+        (limit, offset)
+    )
+    rows = cursor.fetchall()
+    return [dict(row) for row in rows]
+
+def count_parts(self):
+    cursor = self.conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM parts")
+    return cursor.fetchone()[0]
