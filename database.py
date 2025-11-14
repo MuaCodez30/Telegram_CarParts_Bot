@@ -93,16 +93,19 @@ def get_part_by_id(part_id: int) -> Optional[Tuple]:
     conn.close()
     return row
 
-def fetch_parts(self, limit=5, offset=0):
-    cursor = self.conn.cursor()
-    cursor.execute(
-        "SELECT * FROM parts ORDER BY id DESC LIMIT ? OFFSET ?",
-        (limit, offset)
-    )
-    rows = cursor.fetchall()
-    return [dict(row) for row in rows]
+def fetch_parts(limit=5, offset=0):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM parts ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset))
+    rows = c.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]  # dicts with keys like 'id', 'vin', 'photo_path'
 
-def count_parts(self):
-    cursor = self.conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM parts")
-    return cursor.fetchone()[0]
+def count_parts():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM parts")
+    total = c.fetchone()[0]
+    conn.close()
+    return total

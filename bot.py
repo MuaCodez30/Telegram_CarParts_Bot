@@ -2,15 +2,16 @@ import asyncio
 import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile, Message, FSInputFile
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile, Message, FSInputFile, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
 import database as db
+from dotenv import load_dotenv
+load_dotenv()
 
 # === CONFIG ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -40,7 +41,7 @@ def main_menu_kb():
         [InlineKeyboardButton(text="🛒 Browse Parts", callback_data="browse_0")],
         [InlineKeyboardButton(text="🔧 Upload a Part", callback_data="upload")],
         [InlineKeyboardButton(text="🔍 Search Parts", callback_data="search")],
-    ])
+    ]) 
 
 # === /start command ===
 @dp.message(Command("start"))
@@ -355,7 +356,7 @@ async def cb_contact_seller(query: types.CallbackQuery):
         else:
             await query.message.answer("Could not message seller. Seller may have privacy settings. Try browsing other listings or ask admin for help.")
 
-@dp.callback_query(F.data.startswith("browse_"))
+@dp.callback_query(F.data.startswith("browse_0"))
 async def browse_parts_handler(callback: CallbackQuery):
     page = int(callback.data.split("_")[1])
     PAGE_SIZE = 5  # change as you like
@@ -402,7 +403,7 @@ async def browse_parts_handler(callback: CallbackQuery):
     await callback.message.edit_text(
         text, reply_markup=keyboard, parse_mode="Markdown"
     )
-    
+
 # === Start polling ===
 async def main():
     print("Bot is starting...")
